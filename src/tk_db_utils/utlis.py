@@ -1,9 +1,9 @@
     
 from datetime import datetime
 from decimal import Decimal
-from typing import Type,List,Dict,Union,Any
+from typing import Type, List, Dict, Union, Any, Optional
 from pydantic import BaseModel
-from sqlalchemy import inspect,and_,or_
+from sqlalchemy import inspect, and_, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Table, UniqueConstraint, Index
 from collections import defaultdict
@@ -12,6 +12,7 @@ from .models import SqlAlChemyBase
 from .message import message
 
 import json
+import logging
 
 
 class TransDictToPydantic(object):
@@ -60,7 +61,7 @@ class TransDictToPydantic(object):
                             raise  ValueError(f"字段[{obj_field}]类型错误: {field_type},值: {[value]}")
                         value = int(value)
                     elif field_type == 'datetime':
-                        value = self._parse_datetime(value)
+                        value = self.parse_datetime(value)
                     elif field_type == 'str':
                         value = str(value).strip() if value else ''
                     elif field_type == 'float':
@@ -211,15 +212,16 @@ def filter_unique_conflicts(session:Session, model:Type[SqlAlChemyBase], object_
                     condition_parts.append(getattr(model, col_name) == value)
             conditions.append(and_(*condition_parts))
         
-        # 执行批量查询
-        query = session.query(model)
+        # 执行批量查询 (SQLAlchemy 2.0风格)
         if len(conditions) == 1:
-            query = query.filter(conditions[0])
+            stmt = select(model).where(conditions[0])
         else:
-            query = query.filter(or_(*conditions))
+            stmt = select(model).where(or_(*conditions))
+        
+        result = session.execute(stmt)
         
         # 获取数据库中已存在的键组合
-        for record in query:
+        for record in result.scalars():
             key = tuple(getattr(record, col_name) for col_name in constraint['columns'])
             db_existing_keys[constraint['name']].add(key)
     

@@ -17,6 +17,8 @@
 - **分块处理**: 可配置批量大小，避免内存溢出
 - **事务管理**: 自动事务处理，确保数据一致性
 - **连接池管理**: 高效的数据库连接池管理
+- **模式验证**: 自动检查 ORM 模型与数据库表结构的一致性
+- **冲突检测**: 智能检测和处理唯一约束冲突
 
 ### 🛠️ 开发友好
 - **类型提示**: 完整的 TypeScript 风格类型提示
@@ -118,6 +120,49 @@ total_count = crud.count(User)
 ```
 
 ## 高级功能
+
+### 模式验证功能
+
+```python
+from tk_db_utils import (
+    SchemaValidator,
+    validate_schema_consistency,
+    SchemaValidationError
+)
+
+# 方法1: 使用便捷函数进行验证
+with get_session() as session:
+    try:
+        is_valid = validate_schema_consistency(
+            model=User,
+            engine=get_engine(),
+            session=session,
+            strict_mode=False,  # 非严格模式
+            halt_on_error=True  # 发现错误时暂停等待用户确认
+        )
+        
+        if is_valid:
+            print("✅ 模式验证通过")
+        else:
+            print("❌ 模式验证失败")
+            
+    except SchemaValidationError as e:
+        print(f"模式验证错误: {e}")
+
+# 方法2: 使用 SchemaValidator 类进行详细验证
+with get_session() as session:
+    validator = SchemaValidator(get_engine(), session)
+    
+    result = validator.validate_model_schema(
+        model=User,
+        strict_mode=False
+    )
+    
+    if not result['valid']:
+        print("发现的问题:")
+        for error in result['errors']:
+            print(f"  - {error}")
+```
 
 ### INSERT IGNORE 批量操作
 

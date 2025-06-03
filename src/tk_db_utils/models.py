@@ -1,4 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
+from typing import List, Optional
 
 class SqlAlChemyBase(DeclarativeBase):
     pass
@@ -7,7 +8,7 @@ class SqlAlChemyBase(DeclarativeBase):
 class MixIn(DeclarativeBase):
     __abstract__ = True
 
-    def set_special_fields(self, special_fields: list[str]|None  = None):
+    def set_special_fields(self, special_fields: Optional[List[str]] = None):
         self.special_fields = special_fields or []
 
     def to_dict(self):

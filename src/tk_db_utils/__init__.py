@@ -10,7 +10,14 @@ from .message import (
 from .curd import BaseCurd
 from .utlis import (
     TransDictToPydantic,
-    process_objects_with_conflicts
+    process_objects_with_conflicts,
+    get_unique_constraints,
+    filter_unique_conflicts
+)
+from .schema_validator import (
+    SchemaValidator,
+    SchemaValidationError,
+    validate_schema_consistency
 )
 
 __all__ = [
@@ -27,6 +34,11 @@ __all__ = [
     'set_logger_level',
     'BaseCurd',
     'TransDictToPydantic',
-    'process_objects_with_conflicts'
+    'process_objects_with_conflicts',
+    'get_unique_constraints',
+    'filter_unique_conflicts',
+    'SchemaValidator',
+    'SchemaValidationError',
+    'validate_schema_consistency'
 ]
 
