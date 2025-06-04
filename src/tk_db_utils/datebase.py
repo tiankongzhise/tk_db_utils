@@ -24,13 +24,15 @@ class DatabaseConfig:
         self.database: str = os.getenv("DB_NAME_DEFINE", "test_db")
         self.driver: str = os.getenv("DB_DRIVER", "pymysql")
         self.dialect: str = os.getenv("DB_DIALECT", "mysql")
+        self.charset: str = os.getenv("DB_CHARSET", "utf8mb4")
+        self.collation: str = os.getenv("DB_COLLATION", "utf8mb4_unicode_ci")
         
     @property
     def database_url(self) -> Optional[str]:
         """构建数据库连接URL"""
         if not self.host:
             return None
-        return f"{self.dialect}+{self.driver}://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return f"{self.dialect}+{self.driver}://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?charset={self.charset}&collation={self.collation}"
     
     def get_engine_kwargs(self) -> Dict[str, Any]:
         """获取引擎配置参数"""

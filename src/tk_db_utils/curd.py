@@ -1,15 +1,15 @@
 from typing import Type, Iterable, Optional, List, Dict, Any, Union
-from .models import SqlAlChemyBase, DbOrmBaseMixedIn
+from .models import SqlAlChemyBase
 from .message import message
 from .datebase import init_db, get_session, get_engine
-from sqlalchemy import Engine, Insert, select, update, delete, text
+from .utlis import get_unique_constraints
+from sqlalchemy import Engine, Insert, select, update, delete, text,func
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+
 from pydantic import BaseModel
-import math
+
 
 class BaseCurd:
     """基础CRUD操作类 (SQLAlchemy 2.0风格)"""
@@ -56,6 +56,27 @@ class BaseCurd:
             return stmt.prefix_with("OR IGNORE")
         else:
             raise NotImplementedError(f"不支持的数据库类型: {dialect_name}")
+    def _get_unique_and_primary_keys(self, table: Type[SqlAlChemyBase]) -> List[str]:
+        """
+        获取表的唯一约束和主键列名称,无序,去重
+
+        Args:
+            table: SQLAlchemy 表模型类
+
+        Returns:
+            唯一约束和主键列名称列表
+        """
+        result_set = set()
+        # 获取唯一约束
+        unique_constraints = get_unique_constraints(table)
+        for constraint in unique_constraints:
+            result_set.update(constraint['columns'])
+        # 获取主键列
+        primary_keys = [key.name for key in table.__table__.primary_key]
+        result_set.update(primary_keys)
+
+        return list(result_set)
+    
     
     def _get_replace_into_stmt(self, table: Type[SqlAlChemyBase], data: List[Dict[str, Any]]):
         """
@@ -74,8 +95,25 @@ class BaseCurd:
         dialect_name = self.engine.dialect.name
         
         if dialect_name == 'mysql':
-            stmt = mysql_insert(table).values(data)
-            return stmt.prefix_with("REPLACE")
+            insert_stmt = mysql_insert(table).values(data)
+            # 获取所有列名
+            all_columns = [col.name for col in table.__table__.columns]
+            
+            # 获取唯一约束和主键列名称
+            unique_and_primary_keys = self._get_unique_and_primary_keys(table)
+            # 确定要更新的列（排除唯一键和主键）
+            columns_to_update = [col for col in all_columns if col not in unique_and_primary_keys]
+            # 构建更新字典
+            update_dict = {}
+            for col in columns_to_update:
+                # 使用 VALUES() 函数引用新值
+                update_dict[col] = text(f"VALUES({col})")
+            # 特殊处理更新时间
+            if 'updated_at' in columns_to_update:
+                update_dict['updated_at'] = func.now()    
+            
+            update_stmt = insert_stmt.on_duplicate_key_update(update_dict)
+            return update_stmt
         elif dialect_name == 'postgresql':
             # PostgreSQL使用ON CONFLICT DO UPDATE
             stmt = postgresql_insert(table).values(data)

@@ -12,8 +12,10 @@ class MixIn(DeclarativeBase):
         self.special_fields = special_fields or []
 
     def to_dict(self):
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns if c.name not in self.special_fields}
-
+        if hasattr(self, "special_fields"):
+            return {c.name: getattr(self, c.name) for c in self.__table__.columns if c.name not in self.special_fields}
+        else:
+            return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 class DbOrmBaseMixedIn(SqlAlChemyBase, MixIn):
     __abstract__ = True
     pass
