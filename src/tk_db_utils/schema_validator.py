@@ -51,7 +51,7 @@ class SchemaValidator:
         table_name = model.__tablename__
         
         # 检查表是否存在
-        if not self._table_exists(table_name):
+        if not self._table_exists(model):
             error_msg = f"表 '{table_name}' 在数据库中不存在"
             message.error(error_msg)
             if strict_mode:
@@ -91,13 +91,16 @@ class SchemaValidator:
         
         return validation_result
     
-    def _table_exists(self, table_name: str) -> bool:
+    def _table_exists(self, table_model: Type[SqlAlChemyBase]) -> bool:
         """检查表是否存在"""
         try:
+            table_name = table_model.__tablename__
+            table_schema = table_model.__table__.schema or "DATABASE()"
+            
             result = self.session.execute(
                 text("SELECT 1 FROM information_schema.tables "
-                     "WHERE table_schema = DATABASE() AND table_name = :table_name"),
-                {"table_name": table_name}
+                     "WHERE table_schema = :table_schema AND table_name = :table_name"),
+                {"table_schema":table_schema,"table_name": table_name}
             )
             return result.fetchone() is not None
         except Exception as e:
