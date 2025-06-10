@@ -1,0 +1,50 @@
+# 数据库引擎配置文件示例
+# 复制此文件为 db_config.toml 并根据需要修改配置
+# 敏感信息（如密码、主机地址等）应配置在 .env 文件中
+
+[database]
+# 数据库基本配置
+database = "your_database_name"  # 数据库名称
+driver = "pymysql"              # 数据库驱动 (pymysql, psycopg2, sqlite等)
+dialect = "mysql"               # 数据库方言 (mysql, postgresql, sqlite等)
+charset = "utf8mb4"             # 字符集
+collation = "utf8mb4_general_ci" # 排序规则
+
+[engine]
+# SQLAlchemy 引擎配置
+echo = false          # 是否打印SQL语句到控制台
+pool_size = 5         # 连接池大小
+max_overflow = 10     # 连接池最大溢出连接数
+pool_timeout = 30     # 获取连接的超时时间（秒）
+pool_recycle = 3600   # 连接回收时间（秒）
+pool_pre_ping = true  # 连接前是否ping测试连接有效性
+
+[connection]
+# 连接配置
+default_port = 3306        # 默认端口（当环境变量未设置时使用）
+connection_timeout = 30    # 连接超时时间
+read_timeout = 30          # 读取超时时间
+write_timeout = 30         # 写入超时时间
+
+# 不同数据库的配置示例：
+
+# MySQL 配置示例
+# [database]
+# database = "myapp_db"
+# driver = "pymysql"
+# dialect = "mysql"
+# charset = "utf8mb4"
+# collation = "utf8mb4_unicode_ci"
+
+# PostgreSQL 配置示例
+# [database]
+# database = "myapp_db"
+# driver = "psycopg2"
+# dialect = "postgresql"
+# charset = "utf8"
+
+# SQLite 配置示例
+# [database]
+# database = "./data/myapp.db"  # SQLite 使用文件路径
+# driver = "pysqlite"
+# dialect = "sqlite"
