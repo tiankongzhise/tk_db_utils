@@ -96,8 +96,8 @@ class SchemaValidator:
         try:
             result = self.session.execute(
                 text("SELECT 1 FROM information_schema.tables "
-                     "WHERE table_schema = DATABASE() AND table_name = :table_name")
-                .bindparam(table_name=table_name)
+                     "WHERE table_schema = DATABASE() AND table_name = :table_name"),
+                {"table_name": table_name}
             )
             return result.fetchone() is not None
         except Exception as e:
@@ -110,15 +110,23 @@ class SchemaValidator:
         metadata = MetaData()
         table = Table(table_name, metadata, autoload_with=self.engine)
         
+        # 获取唯一索引信息，用于判断列的唯一性
+        unique_columns = set()
+        for idx in table.indexes:
+            if idx.unique and len(idx.columns) == 1:
+                unique_columns.add(list(idx.columns)[0].name)
+        
         # 提取列信息
         columns = {}
         for col in table.columns:
+            # 检查列是否有唯一约束（通过唯一索引判断）
+            is_unique = col.name in unique_columns or col.unique
             columns[col.name] = {
                 'type': str(col.type),
                 'nullable': col.nullable,
                 'default': self._get_column_default(col),
                 'primary_key': col.primary_key,
-                'unique': col.unique,
+                'unique': is_unique,
                 'autoincrement': getattr(col, 'autoincrement', False)
             }
         
@@ -131,15 +139,52 @@ class SchemaValidator:
                 'unique': idx.unique
             })
         
-        # 提取约束信息
+        # 提取约束信息 - 直接查询数据库获取更准确的约束信息
         constraints = []
-        for constraint in table.constraints:
-            if isinstance(constraint, UniqueConstraint):
+        try:
+            # 查询唯一约束
+            unique_constraints_query = text("""
+                SELECT CONSTRAINT_NAME, COLUMN_NAME
+                FROM information_schema.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = :table_name
+                AND CONSTRAINT_NAME != 'PRIMARY'
+                AND CONSTRAINT_NAME IN (
+                    SELECT CONSTRAINT_NAME 
+                    FROM information_schema.TABLE_CONSTRAINTS 
+                    WHERE CONSTRAINT_TYPE = 'UNIQUE'
+                    AND TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = :table_name
+                )
+                ORDER BY CONSTRAINT_NAME, ORDINAL_POSITION
+            """)
+            
+            result = self.session.execute(unique_constraints_query, {"table_name": table_name})
+            constraint_columns = {}
+            
+            for row in result:
+                constraint_name = row[0]
+                column_name = row[1]
+                if constraint_name not in constraint_columns:
+                    constraint_columns[constraint_name] = []
+                constraint_columns[constraint_name].append(column_name)
+            
+            for constraint_name, columns_list in constraint_columns.items():
                 constraints.append({
                     'type': 'unique',
-                    'name': constraint.name,
-                    'columns': [col.name for col in constraint.columns]
+                    'name': constraint_name,
+                    'columns': columns_list
                 })
+                
+        except Exception as e:
+            # 如果查询失败，回退到反射机制
+            for constraint in table.constraints:
+                if isinstance(constraint, UniqueConstraint):
+                    constraints.append({
+                        'type': 'unique',
+                        'name': constraint.name,
+                        'columns': [col.name for col in constraint.columns]
+                    })
         
         # 提取外键信息
         foreign_keys = []
@@ -185,6 +230,8 @@ class SchemaValidator:
         
         # 提取约束信息
         constraints = []
+        
+        # 1. 提取表级约束
         for constraint in table.constraints:
             if isinstance(constraint, UniqueConstraint):
                 constraints.append({
@@ -192,6 +239,24 @@ class SchemaValidator:
                     'name': constraint.name,
                     'columns': [col.name for col in constraint.columns]
                 })
+        
+        # 2. 提取字段级unique约束
+        for col in table.columns:
+            if col.unique and not col.primary_key:
+                # 检查是否已经有表级约束覆盖了这个列
+                column_covered = False
+                for constraint in constraints:
+                    if constraint['columns'] == [col.name]:
+                        column_covered = True
+                        break
+                
+                # 如果没有被表级约束覆盖，则添加字段级约束
+                if not column_covered:
+                    constraints.append({
+                        'type': 'unique',
+                        'name': f'uq_{table.name}_{col.name}',  # 生成约束名
+                        'columns': [col.name]
+                    })
         
         # 提取外键信息
         foreign_keys = []
@@ -309,7 +374,7 @@ class SchemaValidator:
             'TEXT': ['TEXT', 'VARCHAR', 'STRING'],
             'DATETIME': ['DATETIME', 'TIMESTAMP'],
             'DECIMAL': ['DECIMAL', 'NUMERIC'],
-            'BOOLEAN': ['BOOLEAN', 'BOOL', 'TINYINT(1)']
+            'BOOLEAN': ['BOOLEAN', 'BOOL', 'TINYINT', 'TINYINT(1)']
         }
         
         for base_type, compatible_types in type_mappings.items():
@@ -321,29 +386,60 @@ class SchemaValidator:
     
     def _compare_indexes(self, orm_indexes: List[Dict], db_indexes: List[Dict], errors: List[str]):
         """比较索引"""
-        orm_index_names = {idx['name'] for idx in orm_indexes if idx['name']}
-        db_index_names = {idx['name'] for idx in db_indexes if idx['name']}
+        # 创建索引签名集合（基于列组合而不是名称）
+        def create_index_signature(idx):
+            columns = tuple(sorted(idx['columns']))
+            return f"{columns}_{idx['unique']}"
         
-        missing_in_db = orm_index_names - db_index_names
+        orm_signatures = {create_index_signature(idx): idx for idx in orm_indexes}
+        db_signatures = {create_index_signature(idx): idx for idx in db_indexes}
+        
+        # 检查缺失的索引（基于列组合）
+        missing_in_db = set(orm_signatures.keys()) - set(db_signatures.keys())
         if missing_in_db:
-            errors.append(f"数据库中缺失索引: {', '.join(missing_in_db)}")
+            missing_names = [orm_signatures[sig]['name'] or f"unnamed({orm_signatures[sig]['columns']})" for sig in missing_in_db]
+            errors.append(f"数据库中缺失索引: {', '.join(missing_names)}")
         
-        missing_in_orm = db_index_names - orm_index_names
+        missing_in_orm = set(db_signatures.keys()) - set(orm_signatures.keys())
         if missing_in_orm:
-            errors.append(f"ORM模型中缺失索引: {', '.join(missing_in_orm)}")
+            # 过滤掉自动生成的唯一索引（这些通常对应unique=True的列）
+            filtered_missing = []
+            for sig in missing_in_orm:
+                idx = db_signatures[sig]
+                # 如果是单列唯一索引，可能是由unique=True自动生成的，不报错
+                if not (idx['unique'] and len(idx['columns']) == 1):
+                    filtered_missing.append(idx['name'] or f"unnamed({idx['columns']})")
+            
+            if filtered_missing:
+                errors.append(f"ORM模型中缺失索引: {', '.join(filtered_missing)}")
     
     def _compare_constraints(self, orm_constraints: List[Dict], db_constraints: List[Dict], errors: List[str]):
-        """比较约束"""
-        orm_constraint_names = {c['name'] for c in orm_constraints if c['name']}
-        db_constraint_names = {c['name'] for c in db_constraints if c['name']}
+        """比较约束 - 基于约束覆盖的列进行智能比较"""
+        # 创建约束签名：基于约束类型和覆盖的列
+        def create_constraint_signature(constraint):
+            columns = tuple(sorted(constraint['columns']))
+            return f"{constraint['type']}:{','.join(columns)}"
         
-        missing_in_db = orm_constraint_names - db_constraint_names
+        # 获取ORM和数据库约束的签名
+        orm_signatures = {create_constraint_signature(c) for c in orm_constraints}
+        db_signatures = {create_constraint_signature(c) for c in db_constraints}
+        
+        # 比较约束覆盖范围，而不是约束名称
+        missing_in_db = orm_signatures - db_signatures
         if missing_in_db:
-            errors.append(f"数据库中缺失约束: {', '.join(missing_in_db)}")
+            missing_details = []
+            for sig in missing_in_db:
+                constraint_type, columns = sig.split(':', 1)
+                missing_details.append(f"{constraint_type}({columns})")
+            errors.append(f"数据库中缺失约束: {', '.join(missing_details)}")
         
-        missing_in_orm = db_constraint_names - orm_constraint_names
+        missing_in_orm = db_signatures - orm_signatures
         if missing_in_orm:
-            errors.append(f"ORM模型中缺失约束: {', '.join(missing_in_orm)}")
+            missing_details = []
+            for sig in missing_in_orm:
+                constraint_type, columns = sig.split(':', 1)
+                missing_details.append(f"{constraint_type}({columns})")
+            errors.append(f"ORM模型中缺失约束: {', '.join(missing_details)}")
     
     def _compare_foreign_keys(self, orm_fks: List[Dict], db_fks: List[Dict], errors: List[str]):
         """比较外键"""

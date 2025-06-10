@@ -34,7 +34,52 @@ pip install tk-db-utils
 
 ## 快速开始
 
-### 1. 基础配置
+### 1. 安装
+
+```bash
+pip install tk-db-utils
+```
+
+### 2. 配置数据库连接
+
+本项目采用分离式配置管理，将敏感信息和引擎参数分别存储：
+
+#### 敏感信息配置 (`.env`)
+创建 `.env` 文件并配置数据库连接的敏感信息：
+
+```env
+# 数据库敏感信息配置
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
+
+#### 引擎参数配置 (`db_config.toml`)
+创建 `db_config.toml` 文件并配置数据库引擎参数：
+
+```toml
+[database]
+database = "your_database_name"
+driver = "pymysql"
+dialect = "mysql"
+charset = "utf8mb4"
+collation = "utf8mb4_general_ci"
+
+[engine]
+echo = false
+pool_size = 5
+max_overflow = 10
+pool_timeout = 30
+pool_recycle = 3600
+pool_pre_ping = true
+```
+
+> 💡 **提示**: 可以复制 `.env.example` 和 `db_config.example.toml` 文件作为模板开始配置。
+> 
+> 📖 **详细配置指南**: 查看 [CONFIG_GUIDE.md](CONFIG_GUIDE.md) 了解完整的配置说明。
+
+### 3. 基础配置
 
 ```python
 from tk_db_utils import (

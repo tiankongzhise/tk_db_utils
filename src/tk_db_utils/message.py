@@ -124,7 +124,8 @@ class Message:
             raise RuntimeError(
                 f"设置日志配置失败 (handler类型: {type(self.message_handler).__name__}): {str(e)}"
             ) from e
-
+    
+   
 
 # 全局单例实例
 _global_message = None
@@ -151,3 +152,4 @@ def set_message_config(config: Dict[str, Any]):
 def set_logger_level(level: str):
     """设置全局日志级别"""
     get_message_instance().set_logger_level(level)
+

@@ -8,39 +8,113 @@ from .message import message
 
 import os
 import traceback
+import tomllib
+from pathlib import Path
 
 # 加载环境变量
 load_dotenv()
 
 # 数据库配置类
 class DatabaseConfig:
-    """数据库配置管理类"""
+    """数据库配置管理类
     
-    def __init__(self):
+    从 .env 文件读取敏感信息（主机、端口、用户名、密码）
+    从 db_config.toml 文件读取引擎配置参数
+    """
+    
+    def __init__(self, config_file: Optional[str] = None):
+        # 从环境变量读取敏感信息
         self.host: Optional[str] = os.getenv("DB_HOST")
         self.port: str = os.getenv("DB_PORT", "3306")
         self.username: str = os.getenv("DB_USERNAME", "root")
         self.password: str = os.getenv("DB_PASSWORD", "password")
-        self.database: str = os.getenv("DB_NAME_DEFINE", "test_db")
-        self.driver: str = os.getenv("DB_DRIVER", "pymysql")
-        self.dialect: str = os.getenv("DB_DIALECT", "mysql")
+        
+        # 加载TOML配置文件
+        self._load_toml_config(config_file)
+        
+    def _load_toml_config(self, config_file: Optional[str] = None) -> None:
+        """加载TOML配置文件"""
+        if config_file is None:
+            # 默认配置文件路径：项目根目录下的 db_config.toml
+            # 从当前文件位置向上查找项目根目录
+            current_path = Path(__file__).parent
+            while current_path.parent != current_path:
+                potential_config = current_path / "db_config.toml"
+                if potential_config.exists():
+                    config_file = potential_config
+                    break
+                # 检查是否有pyproject.toml或setup.py，表示这是项目根目录
+                if (current_path / "pyproject.toml").exists() or (current_path / "setup.py").exists():
+                    config_file = current_path / "db_config.toml"
+                    break
+                current_path = current_path.parent
+            else:
+                # 如果没找到项目根目录，使用当前工作目录
+                config_file = Path.cwd() / "db_config.toml"
+        else:
+            config_file = Path(config_file)
+            
+        try:
+            if config_file.exists():
+                with open(config_file, "rb") as f:
+                    config = tomllib.load(f)
+                    
+                # 数据库基本配置
+                db_config = config.get("database", {})
+                self.database: str = db_config.get("database", "test_db")
+                self.driver: str = db_config.get("driver", "pymysql")
+                self.dialect: str = db_config.get("dialect", "mysql")
+                self.charset: str = db_config.get("charset", "utf8mb4")
+                self.collation: str = db_config.get("collation", "utf8mb4_unicode_ci")
+                
+                # 引擎配置
+                self._engine_config = config.get("engine", {})
+                
+                # 连接配置
+                conn_config = config.get("connection", {})
+                if not os.getenv("DB_PORT"):
+                    self.port = str(conn_config.get("default_port", 3306))
+                    
+                message.info(f"已加载数据库配置文件: {config_file}")
+            else:
+                message.warning(f"配置文件不存在，使用默认配置: {config_file}")
+                self._set_default_config()
+        except Exception as e:
+            message.error(f"加载配置文件失败: {str(e)}，使用默认配置")
+            self._set_default_config()
+            
+    def _set_default_config(self) -> None:
+        """设置默认配置"""
+        self.database = "test_db"
+        self.driver = "pymysql"
+        self.dialect = "mysql"
+        self.charset = "utf8mb4"
+        self.collation = "utf8mb4_unicode_ci"
+        self._engine_config = {
+            "echo": False,
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_timeout": 30,
+            "pool_recycle": 3600,
+            "pool_pre_ping": True
+        }
         
     @property
     def database_url(self) -> Optional[str]:
         """构建数据库连接URL"""
         if not self.host:
             return None
-        return f"{self.dialect}+{self.driver}://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return f"{self.dialect}+{self.driver}://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?charset={self.charset}&collation={self.collation}"
     
     def get_engine_kwargs(self) -> Dict[str, Any]:
         """获取引擎配置参数"""
         return {
-            'echo': os.getenv("DB_ECHO", "false").lower() == "true",
-            'pool_size': int(os.getenv("DB_POOL_SIZE", "10")),
-            'max_overflow': int(os.getenv("DB_MAX_OVERFLOW", "20")),
-            'pool_timeout': int(os.getenv("DB_POOL_TIMEOUT", "30")),
-            'pool_recycle': int(os.getenv("DB_POOL_RECYCLE", "3600")),
-            'pool_pre_ping': os.getenv("DB_POOL_PRE_PING", "true").lower() == "true",
+            'echo': self._engine_config.get("echo", False),
+            'pool_size': self._engine_config.get("pool_size", 5),
+            'max_overflow': self._engine_config.get("max_overflow", 10),
+            'pool_timeout': self._engine_config.get("pool_timeout", 30),
+            'pool_recycle': self._engine_config.get("pool_recycle", 3600),
+            'pool_pre_ping': self._engine_config.get("pool_pre_ping", True),
         }
 
 # 全局数据库配置
@@ -140,6 +214,7 @@ def configure_database(
     database: Optional[str] = None,
     driver: Optional[str] = None,
     dialect: Optional[str] = None,
+    config_file: Optional[str] = None,
     **engine_kwargs
 ) -> Engine:
     """
@@ -153,6 +228,7 @@ def configure_database(
         database: 数据库名
         driver: 数据库驱动
         dialect: 数据库方言
+        config_file: 配置文件路径，如果提供则重新加载配置
         **engine_kwargs: 引擎额外参数
         
     Returns:
@@ -162,9 +238,13 @@ def configure_database(
         ValueError: 当必要参数缺失时
         RuntimeError: 当引擎创建失败时
     """
-    global engine, SessionLocal
+    global engine, SessionLocal, db_config
     
-    # 更新配置
+    # 如果提供了配置文件路径，重新创建配置对象
+    if config_file is not None:
+        db_config = DatabaseConfig(config_file)
+    
+    # 更新敏感信息配置（这些通常来自环境变量或参数）
     if host is not None:
         db_config.host = host
     if port is not None:
@@ -173,6 +253,8 @@ def configure_database(
         db_config.username = username
     if password is not None:
         db_config.password = password
+        
+    # 更新数据库基本配置（这些通常来自配置文件，但也允许参数覆盖）
     if database is not None:
         db_config.database = database
     if driver is not None:
