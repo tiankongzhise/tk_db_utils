@@ -3,7 +3,7 @@ from .models import SqlAlChemyBase
 from .message import message
 from .datebase import init_db, get_session, get_engine
 from .utlis import get_unique_constraints
-from sqlalchemy import Engine, Insert, select, update, delete, text,func
+from sqlalchemy import Engine, Insert, select, update, delete, text,func,CursorResult
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -613,7 +613,7 @@ class BaseCurd:
             message.error(f"统计记录失败: {str(e)}")
             raise RuntimeError(f"统计记录失败: {str(e)}") from e
     
-    def execute_raw_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    def execute_raw_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> CursorResult[Any]:
         """
         执行原生SQL语句
         

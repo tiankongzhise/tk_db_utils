@@ -369,24 +369,32 @@ class SchemaValidator:
     
     def _types_compatible(self, orm_type: str, db_type: str) -> bool:
         """检查ORM类型和数据库类型是否兼容"""
-        # 简化的类型兼容性检查
-        # 这里可以根据需要扩展更复杂的类型映射逻辑
-        
         # 标准化类型字符串
         orm_type = orm_type.upper().replace(' ', '')
         db_type = db_type.upper().replace(' ', '')
         
-        # 基本类型映射
-        type_mappings = {
+        # 精确类型映射 - 区分DATETIME和TIMESTAMP
+        exact_type_mappings = {
+            'DATETIME': ['DATETIME'],
+            'TIMESTAMP': ['TIMESTAMP'],
             'INTEGER': ['INT', 'INTEGER', 'BIGINT'],
-            'VARCHAR': ['VARCHAR', 'TEXT', 'STRING'],
-            'TEXT': ['TEXT', 'VARCHAR', 'STRING'],
-            'DATETIME': ['DATETIME', 'TIMESTAMP'],
+            'VARCHAR': ['VARCHAR'],
+            'TEXT': ['TEXT'],
             'DECIMAL': ['DECIMAL', 'NUMERIC'],
             'BOOLEAN': ['BOOLEAN', 'BOOL', 'TINYINT', 'TINYINT(1)']
         }
         
-        for base_type, compatible_types in type_mappings.items():
+        # 首先尝试精确匹配
+        for base_type, exact_types in exact_type_mappings.items():
+            if any(t in orm_type for t in exact_types) and any(t in db_type for t in exact_types):
+                return True
+        
+        # 兼容类型映射 - 用于向后兼容
+        compatible_type_mappings = {
+            'VARCHAR_TEXT': ['VARCHAR', 'TEXT', 'STRING'],  # VARCHAR和TEXT可以互相兼容
+        }
+        
+        for group_name, compatible_types in compatible_type_mappings.items():
             if any(t in orm_type for t in compatible_types) and any(t in db_type for t in compatible_types):
                 return True
         
