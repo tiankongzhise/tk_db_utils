@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/tk-db-utils"
-Repository = "https://github.com/your-username/tk-db-utils"
-Documentation = "https://github.com/your-username/tk-db-utils#readme"
-Issues = "https://github.com/your-username/tk-db-utils/issues"
+Homepage = "https://github.com/tiankongzhise/tk-db-utils"
+Repository = "https://github.com/tiankongzhise/tk-db-utils"
+Documentation = "https://github.com/tiankongzhise/tk-db-utils#readme"
+Issues = "https://github.com/tiankongzhise/tk-db-utils/issues"
