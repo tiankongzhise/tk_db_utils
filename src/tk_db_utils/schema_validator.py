@@ -49,10 +49,10 @@ class SchemaValidator:
             SchemaValidationError: 当strict_mode=True且发现不一致时
         """
         table_name = model.__tablename__
-        
+        db_scahema = self.session.get_bind().url.database
         # 检查表是否存在
         if not self._table_exists(model):
-            error_msg = f"表 '{table_name}' 在数据库中不存在"
+            error_msg = f"表 '{table_name}' 在数据库:{db_scahema}中不存在"
             message.error(error_msg)
             if strict_mode:
                 raise SchemaValidationError(error_msg)
@@ -95,13 +95,19 @@ class SchemaValidator:
         """检查表是否存在"""
         try:
             table_name = table_model.__tablename__
-            table_schema = table_model.__table__.schema or "DATABASE()"
-            
-            result = self.session.execute(
-                text("SELECT 1 FROM information_schema.tables "
-                     "WHERE table_schema = :table_schema AND table_name = :table_name"),
-                {"table_schema":table_schema,"table_name": table_name}
-            )
+            table_schema = table_model.__table__.schema
+            if table_schema:
+                result = self.session.execute(
+                    text("SELECT 1 FROM information_schema.tables "
+                        "WHERE table_schema = :table_schema AND table_name = :table_name"),
+                    {"table_schema":table_schema,"table_name": table_name}
+                )
+            else:
+                result = self.session.execute(
+                    text("SELECT 1 FROM information_schema.tables "
+                        "WHERE table_schema = DATABASE() AND table_name = :table_name"),
+                    {"table_name": table_name}
+                )
             return result.fetchone() is not None
         except Exception as e:
             message.error(f"检查表存在性时出错: {str(e)}")
