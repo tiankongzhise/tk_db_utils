@@ -22,12 +22,15 @@ from .schema_validator import SchemaValidationError
 import os
 import traceback
 import tomllib
-import atexit
+import threading
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
 # 加载环境变量
 load_dotenv()
+
+
 
 
 class AsyncDatabaseConfig:
@@ -82,7 +85,10 @@ class AsyncDatabaseConfig:
                 conn_config = config.get("connection", {})
                 if not os.getenv("DB_PORT"):
                     self.port = str(conn_config.get("default_port", 3306))
-                    
+                
+                # 程序结束时 数据库最大等待时间
+                self.max_db_async_event_loop_wait_time = conn_config.get("max_db_async_event_loop_wait_time", 60)
+                
                 message.info(f"已加载异步数据库配置文件: {config_file}")
             else:
                 message.warning(f"配置文件不存在，使用默认配置: {config_file}")
@@ -158,17 +164,6 @@ AsyncSessionLocal: Optional[async_sessionmaker] = None
 if async_engine:
     AsyncSessionLocal = async_sessionmaker(bind=async_engine, expire_on_commit=False)
 
-async def async_cleanup():
-    if async_engine:
-        await async_engine.dispose()
-        message.info("Database engine disposed")
-
-def sync_cleanup():
-    # 获取当前事件循环并运行异步清理
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(async_cleanup())
-    loop.close()
-    message.info("Event loop closed")
 
 async def async_init_db(sqlalchemy_base: Optional[Type[DeclarativeBase]] = None) -> None:
     """异步初始化数据库表结构"""
@@ -183,7 +178,6 @@ async def async_init_db(sqlalchemy_base: Optional[Type[DeclarativeBase]] = None)
         raise RuntimeError(error_msg)
     
     try:
-        atexit.register(sync_cleanup)
         base = sqlalchemy_base or DbOrmBaseMixedIn
         async with async_engine.begin() as conn:
             await conn.run_sync(base.metadata.create_all)
@@ -212,8 +206,6 @@ async def async_get_session(auto_commit: bool = True) -> Generator[AsyncSession,
             error_detail = traceback.format_exc()
             message.error(f"异步数据库操作出错: {str(e)}\n完整错误信息:\n{error_detail}，已回滚事务")
             raise
-        finally:
-            await session.close()
 
 
 def get_async_engine() -> Optional[AsyncEngine]:
@@ -280,14 +272,14 @@ class AsyncBaseCurd:
     """异步基础CRUD操作类"""
     
     def __init__(self, db_engine: Optional[AsyncEngine] = None, auto_init_db: bool = True):
-        """初始化异步CRUD操作类"""
-        self.engine = db_engine or get_async_engine()
-        if not self.engine:
-            raise RuntimeError("异步数据库引擎未配置，请先配置数据库连接")
-            
+        """初始化异步CRUD操作类"""            
         if auto_init_db:
             # 注意：这里需要在异步环境中调用
             asyncio.create_task(async_init_db())
+        self.engine = db_engine or get_async_engine()
+        if not self.engine:
+            raise RuntimeError("异步数据库引擎未配置，请先配置数据库连接")
+        self.max_db_async_event_loop_wait_time = async_db_config.max_db_async_event_loop_wait_time
     
     def _get_async_insert_ignore_stmt(self, table: Type[SqlAlChemyBase], data: List[Dict[str, Any]]):
         """获取异步INSERT IGNORE语句"""
@@ -692,8 +684,29 @@ class AsyncBaseCurd:
         except Exception as e:
             message.error(f"异步执行原生SQL失败: {str(e)}")
             raise RuntimeError(f"异步执行原生SQL失败: {str(e)}") from e
-
-
+    def __del__(self):
+        if self.engine:
+            async_loop = asyncio.get_event_loop()
+            if async_loop.is_running():
+                #新开一个线程,每秒检查一次async_loop是否结束,最多检查self.max_db_async_event_loop_wait_time次,再检查完成前join住线程
+                def check_loop():
+                    wait_time = 0
+                    while wait_time < self.max_db_async_event_loop_wait_time:
+                        if async_loop.is_running():
+                            time.sleep(1)
+                            wait_time += 1
+                        else:
+                            break
+                check_thread = threading.Thread(target=check_loop)
+                check_thread.start()
+                check_thread.join()
+                async_loop.run_until_complete(self.engine.dispose())
+            else:
+                async_loop.run_until_complete(self.engine.dispose())
+            
+            
+        
+        
 class AsyncSchemaValidator:
     """异步ORM模型与数据库表结构一致性检查器"""
     
@@ -771,7 +784,7 @@ class AsyncSchemaValidator:
         metadata = MetaData()
         
         # 异步反射表结构
-        async with self.engine.connect() as conn:
+        async with self.engine.begin() as conn:
             await conn.run_sync(lambda sync_conn: metadata.reflect(bind=sync_conn, only=[table_name]))
         
         table = metadata.tables[table_name]
