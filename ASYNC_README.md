@@ -1,3 +1,38 @@
+# tk_db_utils 异步操作指南
+
+## 🎉 新功能：异步引擎自动清理
+
+**现在无需手动关闭数据库连接！** `tk_db_utils` 提供了完整的 SQLAlchemy 2.0 异步引擎自动清理机制。
+
+### 主要优势
+- ✅ **零配置**: 自动检测和注册所有异步引擎
+- ✅ **智能清理**: 程序退出时自动清理所有资源
+- ✅ **信号支持**: 支持 SIGTERM/SIGINT 信号处理
+- ✅ **内存安全**: 使用弱引用避免内存泄漏
+- ✅ **超时保护**: 防止清理过程阻塞程序退出
+
+### 使用示例
+```python
+import asyncio
+from tk_db_utils.async_operations import async_get_session, AsyncBaseCurd
+
+async def main():
+    # 直接使用，无需手动清理
+    async with async_get_session() as session:
+        # 执行数据库操作
+        pass
+    
+    # 程序结束时会自动清理所有资源
+
+if __name__ == "__main__":
+    asyncio.run(main())
+    # 🎉 无需手动调用 engine.dispose()!
+```
+
+📖 **详细文档**: [异步引擎自动清理机制](./ASYNC_AUTO_CLEANUP.md)
+
+---
+
 # tk_db_utils 异步功能使用指南
 
 本文档介绍 `tk_db_utils` 包中新增的异步数据库操作功能。所有异步功能都集中在 `async_operations.py` 模块中。

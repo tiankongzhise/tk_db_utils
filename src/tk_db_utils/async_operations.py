@@ -1,3 +1,6 @@
+import atexit
+import signal
+import weakref
 from typing import Type, Iterable, Optional, List, Dict, Any, Union, Generator
 from contextlib import asynccontextmanager
 import asyncio
@@ -6,7 +9,7 @@ from decimal import Decimal
 from collections import defaultdict
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy import select, update, delete, text, func, Insert, inspect, and_, or_, MetaData, Table, Column
+from sqlalchemy import event, select, update, delete, text, func, Insert, inspect, and_, or_, MetaData, Table, Column
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -150,6 +153,8 @@ class AsyncDatabaseConfig:
 # 全局异步数据库配置
 async_db_config = AsyncDatabaseConfig()
 
+
+
 # 创建异步数据库引擎
 async_engine: Optional[AsyncEngine] = None
 if async_db_config.async_database_url:
@@ -163,6 +168,25 @@ if async_db_config.async_database_url:
 AsyncSessionLocal: Optional[async_sessionmaker] = None
 if async_engine:
     AsyncSessionLocal = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+
+def get_or_create_loop():
+    try:
+        loop = asyncio.get_running_loop()
+        return loop
+    except RuntimeError:
+        pass  # 没有运行中的循环
+    
+    try:
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            return loop
+    except RuntimeError:
+        pass  # 没有现有循环
+    
+    # 创建新循环
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop
 
 
 async def async_init_db(sqlalchemy_base: Optional[Type[DeclarativeBase]] = None) -> None:
@@ -186,6 +210,7 @@ async def async_init_db(sqlalchemy_base: Optional[Type[DeclarativeBase]] = None)
         error_msg = f"异步数据库表初始化失败: {str(e)}"
         message.error(error_msg)
         raise RuntimeError(error_msg) from e
+    
 
 
 @asynccontextmanager
@@ -257,6 +282,7 @@ async def configure_async_database(
         
         # 创建新的异步引擎
         async_engine = create_async_engine(async_db_config.async_database_url, **final_kwargs)
+
         AsyncSessionLocal = async_sessionmaker(bind=async_engine, expire_on_commit=False)
         
         message.info(f"异步数据库引擎配置成功: {async_db_config.async_database_url}")
@@ -279,6 +305,7 @@ class AsyncBaseCurd:
         self.engine = db_engine or get_async_engine()
         if not self.engine:
             raise RuntimeError("异步数据库引擎未配置，请先配置数据库连接")
+            
         self.max_db_async_event_loop_wait_time = async_db_config.max_db_async_event_loop_wait_time
     
     def _get_async_insert_ignore_stmt(self, table: Type[SqlAlChemyBase], data: List[Dict[str, Any]]):
@@ -493,7 +520,7 @@ class AsyncBaseCurd:
     async def async_select_all(self, table: Type[SqlAlChemyBase], limit: Optional[int] = None, offset: Optional[int] = None) -> List[SqlAlChemyBase]:
         """异步查询所有记录"""
         try:
-            async with async_get_session(auto_commit=False) as session:
+            async with async_get_session(auto_commit=True) as session:
                 stmt = select(table)
                 if offset is not None:
                     stmt = stmt.offset(offset)
@@ -513,7 +540,7 @@ class AsyncBaseCurd:
     async def async_select_by_id(self, table: Type[SqlAlChemyBase], record_id: Any) -> Optional[SqlAlChemyBase]:
         """异步根据ID查询单条记录"""
         try:
-            async with async_get_session(auto_commit=False) as session:
+            async with async_get_session(auto_commit=True) as session:
                 record = await session.get(table, record_id)
                 
                 if record:
@@ -531,7 +558,7 @@ class AsyncBaseCurd:
                            limit: Optional[int] = None, offset: Optional[int] = None) -> List[SqlAlChemyBase]:
         """异步根据条件查询记录"""
         try:
-            async with async_get_session(auto_commit=False) as session:
+            async with async_get_session(auto_commit=True) as session:
                 stmt = select(table)
                 
                 # 添加查询条件
@@ -647,7 +674,7 @@ class AsyncBaseCurd:
     async def async_count(self, table: Type[SqlAlChemyBase], conditions: Optional[Dict[str, Any]] = None) -> int:
         """异步统计记录数"""
         try:
-            async with async_get_session(auto_commit=False) as session:
+            async with async_get_session(auto_commit=True) as session:
                 stmt = select(table)
                 
                 # 添加统计条件
@@ -684,26 +711,6 @@ class AsyncBaseCurd:
         except Exception as e:
             message.error(f"异步执行原生SQL失败: {str(e)}")
             raise RuntimeError(f"异步执行原生SQL失败: {str(e)}") from e
-    def __del__(self):
-        if self.engine:
-            async_loop = asyncio.get_event_loop()
-            if async_loop.is_running():
-                #新开一个线程,每秒检查一次async_loop是否结束,最多检查self.max_db_async_event_loop_wait_time次,再检查完成前join住线程
-                def check_loop():
-                    wait_time = 0
-                    while wait_time < self.max_db_async_event_loop_wait_time:
-                        if async_loop.is_running():
-                            time.sleep(1)
-                            wait_time += 1
-                        else:
-                            break
-                check_thread = threading.Thread(target=check_loop)
-                check_thread.start()
-                check_thread.join()
-                async_loop.run_until_complete(self.engine.dispose())
-            else:
-                async_loop.run_until_complete(self.engine.dispose())
-            
             
         
         
@@ -1114,7 +1121,7 @@ async def async_process_objects_with_conflicts(session: AsyncSession, model: Typ
 async def async_validate_schema_consistency(engine: AsyncEngine, models: List[Type[SqlAlChemyBase]], 
                                           strict_mode: bool = True) -> Dict[str, Any]:
     """异步验证多个模型的模式一致性"""
-    async with async_get_session(auto_commit=False) as session:
+    async with async_get_session(auto_commit=True) as session:
         validator = AsyncSchemaValidator(engine, session)
         
         results = {}
