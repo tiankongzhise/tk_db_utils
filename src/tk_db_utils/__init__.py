@@ -23,7 +23,7 @@ from .async_operations import (
     AsyncDatabaseConfig, AsyncBaseCurd, AsyncSchemaValidator,
     async_init_db, async_get_session, get_async_engine, configure_async_database,
     async_filter_unique_conflicts, async_process_objects_with_conflicts,
-    async_validate_schema_consistency
+    async_validate_schema_consistency,run_async
 )
 
 __all__ = [
@@ -56,6 +56,7 @@ __all__ = [
     'configure_async_database',
     'async_filter_unique_conflicts',
     'async_process_objects_with_conflicts',
-    'async_validate_schema_consistency'
+    'async_validate_schema_consistency',
+    'run_async'
 ]
 

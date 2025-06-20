@@ -4,9 +4,7 @@ from tk_db_utils import (
     DbOrmBaseMixedIn,
     AsyncBaseCurd,
     async_init_db,
-    get_async_engine,
-    configure_async_database,
-    get_async_engine
+    run_async
 )
 
 # 定义模型
@@ -19,12 +17,11 @@ class User(DbOrmBaseMixedIn):
 
 
 async def main():
-
-    # 初始化表
-    await async_init_db()
+    
     
     # 创建CRUD实例
     crud = AsyncBaseCurd()
+
     
     # 先清理可能存在的测试数据
     from datetime import datetime
@@ -39,12 +36,7 @@ async def main():
     user = await crud.async_select_by_id(User, user_id)
     print(f"查询到用户: {user.name if user else 'None'}")
     
-    engine = get_async_engine()
-    print('get_engine is not error')
-    
-    await engine.dispose()
-    print('await dis is ok!')
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run_async(main())

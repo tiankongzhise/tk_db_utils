@@ -1,12 +1,21 @@
 import atexit
 import signal
 import weakref
-from typing import Type, Iterable, Optional, List, Dict, Any, Union, Generator
-from contextlib import asynccontextmanager
 import asyncio
+import os
+import traceback
+import tomllib
+import threading
+import time
+
+from pathlib import Path
+from dotenv import load_dotenv
+from typing import Type, Iterable, Optional, List, Dict, Any, Union, Generator,Coroutine
+from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from collections import defaultdict
+from asyncio import Task
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import event, select, update, delete, text, func, Insert, inspect, and_, or_, MetaData, Table, Column
@@ -22,13 +31,7 @@ from .message import message
 from .utlis import get_unique_constraints, get_column_name
 from .schema_validator import SchemaValidationError
 
-import os
-import traceback
-import tomllib
-import threading
-import time
-from pathlib import Path
-from dotenv import load_dotenv
+
 
 # 加载环境变量
 load_dotenv()
@@ -210,6 +213,12 @@ async def async_init_db(sqlalchemy_base: Optional[Type[DeclarativeBase]] = None)
         error_msg = f"异步数据库表初始化失败: {str(e)}"
         message.error(error_msg)
         raise RuntimeError(error_msg) from e
+def async_init_db_call_back(task:Task) -> None:
+    """异步初始化数据库回调函数"""
+    if task.cancelled():
+        message.error("异步数据库初始化任务已取消")
+    if task.exception():
+        raise
     
 
 
@@ -299,10 +308,10 @@ class AsyncBaseCurd:
     
     def __init__(self, db_engine: Optional[AsyncEngine] = None, auto_init_db: bool = True):
         """初始化异步CRUD操作类"""            
-        if auto_init_db:
-            # 注意：这里需要在异步环境中调用
-            asyncio.create_task(async_init_db())
         self.engine = db_engine or get_async_engine()
+        if auto_init_db:
+            task = asyncio.create_task(async_init_db())
+            task.add_done_callback(async_init_db_call_back)
         if not self.engine:
             raise RuntimeError("异步数据库引擎未配置，请先配置数据库连接")
             
@@ -1157,3 +1166,13 @@ async def async_validate_schema_consistency(engine: AsyncEngine, models: List[Ty
             'all_valid': all_valid,
             'results': results
         }
+
+
+def run_async(coro:Coroutine):
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(coro)
+    finally:
+        engine = get_async_engine()
+        if engine:
+            loop.run_until_complete(engine.dispose())
