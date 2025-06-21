@@ -1,15 +1,19 @@
-from sqlalchemy import create_engine, Engine
-from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
-from dotenv import load_dotenv
-from contextlib import contextmanager
-from typing import Generator, Type, Optional, Dict, Any
-from .models import DbOrmBaseMixedIn
-from .message import message
-
 import os
 import traceback
 import tomllib
 from pathlib import Path
+
+from sqlalchemy import create_engine, Engine, false
+from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
+from dotenv import load_dotenv
+from contextlib import contextmanager
+from typing import Generator, Type, Optional, Dict, Any
+from tk_base_utils import load_toml
+
+from .models import DbOrmBaseMixedIn
+from .message import message
+
+
 
 # 加载环境变量
 load_dotenv()
@@ -35,30 +39,14 @@ class DatabaseConfig:
     def _load_toml_config(self, config_file: Optional[str] = None) -> None:
         """加载TOML配置文件"""
         if config_file is None:
-            # 默认配置文件路径：项目根目录下的 db_config.toml
-            # 从当前文件位置向上查找项目根目录
-            current_path = Path(__file__).parent
-            while current_path.parent != current_path:
-                potential_config = current_path / "db_config.toml"
-                if potential_config.exists():
-                    config_file = potential_config
-                    break
-                # 检查是否有pyproject.toml或setup.py，表示这是项目根目录
-                if (current_path / "pyproject.toml").exists() or (current_path / "setup.py").exists():
-                    config_file = current_path / "db_config.toml"
-                    break
-                current_path = current_path.parent
-            else:
-                # 如果没找到项目根目录，使用当前工作目录
-                config_file = Path.cwd() / "db_config.toml"
-        else:
-            config_file = Path(config_file)
+            config = load_toml('db_config.toml',False)
+            
             
         try:
-            if config_file.exists():
-                with open(config_file, "rb") as f:
-                    config = tomllib.load(f)
-                    
+            if config == {}:  
+                message.warning(f"配置文件不存在，使用默认配置: {config_file}")
+                self._set_default_config()                  
+            else:
                 # 数据库基本配置
                 db_config = config.get("database", {})
                 self.database: str = db_config.get("database", "test_db")
@@ -76,9 +64,6 @@ class DatabaseConfig:
                     self.port = str(conn_config.get("default_port", 3306))
                     
                 message.info(f"已加载数据库配置文件: {config_file}")
-            else:
-                message.warning(f"配置文件不存在，使用默认配置: {config_file}")
-                self._set_default_config()
         except Exception as e:
             message.error(f"加载配置文件失败: {str(e)}，使用默认配置")
             self._set_default_config()
