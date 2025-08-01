@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
-from dotenv import load_dotenv
 from contextlib import contextmanager
 from typing import Generator, Type, Optional, Dict, Any
 from .models import DbOrmBaseMixedIn
@@ -11,8 +10,14 @@ import traceback
 import tomllib
 from pathlib import Path
 
-# 加载环境变量
-load_dotenv()
+def get_env_db_config() -> Dict[str, Any]:
+    """从环境变量获取数据库配置"""
+    return {
+        "host": os.getenv("DB_HOST"),
+        "port": os.getenv("DB_PORT", "3306"),
+        "username": os.getenv("DB_USERNAME", "root"),
+        "password": os.getenv("DB_PASSWORD", "password"),
+    }
 
 # 数据库配置类
 class DatabaseConfig:
@@ -22,13 +27,18 @@ class DatabaseConfig:
     从 db_config.toml 文件读取引擎配置参数
     """
     
-    def __init__(self, config_file: Optional[str] = None):
-        # 从环境变量读取敏感信息
-        self.host: Optional[str] = os.getenv("DB_HOST")
-        self.port: str = os.getenv("DB_PORT", "3306")
-        self.username: str = os.getenv("DB_USERNAME", "root")
-        self.password: str = os.getenv("DB_PASSWORD", "password")
-        
+    def __init__(self, config_file: Optional[str] = None,env_settings:dict|None=None):
+        if env_settings is None:
+            # 从环境变量读取敏感信息
+            self.host: Optional[str] = os.getenv("DB_HOST")
+            self.port: str = os.getenv("DB_PORT", "3306")
+            self.username: str = os.getenv("DB_USERNAME", "root")
+            self.password: str = os.getenv("DB_PASSWORD", "password")
+        else:
+            self.host = env_settings.get("host")
+            self.port = env_settings.get("port")
+            self.username = env_settings.get("username")
+            self.password = env_settings.get("password")
         # 加载TOML配置文件
         self._load_toml_config(config_file)
         
