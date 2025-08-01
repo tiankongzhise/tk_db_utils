@@ -19,7 +19,7 @@ class Message:
             
         if message_handler is None:
             # 创建一个专用的logger，避免与其他模块冲突
-            logger = logging.getLogger('tk_db_tool')
+            logger = logging.getLogger('tk_db_tool_default')
             if not logger.handlers:
                 # 只有在没有handler时才添加默认handler
                 handler = logging.StreamHandler()
@@ -34,6 +34,40 @@ class Message:
             self.message_handler = message_handler
             
         self._initialized = True
+    
+    def init(self,logging_config:Dict[str,Any]):
+        # 创建一个专用的logger，避免与其他模块冲突
+        logger = logging.getLogger('tk_db_tool_custom')
+        path = logging_config.get('path')
+        level = logging_config.get('level')
+        level_map = {
+            "debug": logging.DEBUG,
+            "info": logging.INFO,
+            "warning": logging.WARNING,
+            "error": logging.ERROR,
+            "critical": logging.CRITICAL,
+            "none": logging.NOTSET,
+            "all": logging.DEBUG,
+            "default": logging.INFO,
+        }
+        level = level_map.get(level.lower(),level_map['default'])
+        formatter = logging_config.get('formatter')
+        if formatter is None:
+            formatter = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        
+        if path:
+            handler = logging.FileHandler(path)
+        else:
+            handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            formatter
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+        self.message_handler = logger
+        
+        
     
     def debug(self, message: str):
         """输出调试信息"""
