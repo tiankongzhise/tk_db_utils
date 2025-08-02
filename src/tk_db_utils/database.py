@@ -30,7 +30,7 @@ class SqlalchemyMysqlClient(object):
         self.init_message()
         message.debug(f"logger settings:{self.logger_settings}")
         self.load_env_settings()
-        message.debug(f"env settings:{self.env_settings}")
+        message.debug(f"env settings:DB_HOST:{os.getenv('DB_HOST')},DB_PORT:{os.getenv('DB_PORT')},DB_USERNAME:{os.getenv('DB_USERNAME')},DB_PASSWORD:{os.getenv('DB_PASSWORD')}")
         self.create_engine()        
         message.debug(f"engine:{self.engine}")
         message.info('db init client is success!')

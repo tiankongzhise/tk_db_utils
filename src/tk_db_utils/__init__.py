@@ -20,6 +20,8 @@ from .schema_validator import (
     validate_schema_consistency
 )
 
+from .database import get_db_client
+
 __all__ = [
     'init_db',
     'get_session',
@@ -39,6 +41,7 @@ __all__ = [
     'filter_unique_conflicts',
     'SchemaValidator',
     'SchemaValidationError',
-    'validate_schema_consistency'
+    'validate_schema_consistency',
+    'get_db_client'
 ]
 
