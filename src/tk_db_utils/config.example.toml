@@ -1,8 +1,8 @@
 # 数据库引擎配置文件示例
-# 复制此文件为 db_config.toml 并根据需要修改配置
+# 复制此文件为 config.toml 并根据需要修改配置
 # 敏感信息（如密码、主机地址等）应配置在 .env 文件中
 
-
+[db_config]
 # 数据库基本配置
 database = "test_db"  # 数据库名称
 driver = "pymysql"              # 数据库驱动 (pymysql, psycopg2, sqlite等)

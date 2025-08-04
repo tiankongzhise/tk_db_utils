@@ -96,7 +96,8 @@ class SqlalchemyMysqlClient(object):
             raise FileNotFoundError(f"db config file not found:{self.db_config_path}")
         try:
             with self.db_config_path.open("rb") as f:
-                self.db_config = tomllib.load(f)
+                config_settings = tomllib.load(f)
+                self.db_config = config_settings.get("db_config",{})
         except Exception as e:
             message.error(f"load db config file failed,err:{e}")
             raise ValueError(f"load db config file failed,err:{e}")

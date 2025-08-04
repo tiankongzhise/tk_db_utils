@@ -39,7 +39,7 @@ class Message:
         # 创建一个专用的logger，避免与其他模块冲突
         logger = logging.getLogger('tk_db_tool_custom')
         path = logging_config.get('path')
-        level = logging_config.get('level')
+        level = logging_config.get('level','default')
         level_map = {
             "debug": logging.DEBUG,
             "info": logging.INFO,
