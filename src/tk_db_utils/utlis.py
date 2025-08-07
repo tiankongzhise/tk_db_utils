@@ -9,7 +9,7 @@ from sqlalchemy.sql.schema import Table, UniqueConstraint, Index
 from collections import defaultdict
 
 from .models import SqlAlChemyBase
-from .message import message
+from .logger import db_logger
 
 import json
 import logging
@@ -28,7 +28,7 @@ class TransDictToPydantic(object):
             time_str = str(time_str).replace(' ', '')
             return datetime.strptime(time_str, '%Y-%m-%d%H:%M:%S')
         except ValueError as e:
-            message.error(f"时间格式解析错误: {time_str}, 错误: {str(e)}")
+            db_logger.error(f"时间格式解析错误: {time_str}, 错误: {str(e)}")
             return None
     def set_mapping_fields(self, mapping_fields: dict):
         """设置映射字段"""
@@ -75,7 +75,7 @@ class TransDictToPydantic(object):
                     else:
                         raise ValueError(f"字段[{obj_field}]类型错误: {field_type},值: {[value]}")
                 except (ValueError, TypeError, AttributeError) as e:
-                    message.error(f"字段[{obj_field}]转换错误: {str(e)}")
+                    db_logger.error(f"字段[{obj_field}]转换错误: {str(e)}")
                     value = None
             temp_dict[attr_name] = value
         try:

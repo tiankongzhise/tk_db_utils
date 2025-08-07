@@ -10,7 +10,8 @@ from collections import defaultdict
 import logging
 
 from .models import SqlAlChemyBase
-from .message import message
+from .logger import db_logger
+
 
 
 class SchemaValidationError(Exception):
@@ -53,7 +54,7 @@ class SchemaValidator:
         # 检查表是否存在
         if not self._table_exists(model):
             error_msg = f"表 '{table_name}' 在数据库:{db_scahema}中不存在"
-            message.error(error_msg)
+            db_logger.error(error_msg)
             if strict_mode:
                 raise SchemaValidationError(error_msg)
             return {
@@ -75,10 +76,10 @@ class SchemaValidator:
         
         # 记录验证结果
         if validation_result['valid']:
-            message.info(f"表 '{table_name}' 结构验证通过")
+            db_logger.info(f"表 '{table_name}' 结构验证通过")
         else:
             error_msg = f"表 '{table_name}' 结构验证失败，发现 {len(validation_result['errors'])} 个不一致项"
-            message.error(error_msg)
+            db_logger.error(error_msg)
             
             # 详细记录每个错误
             for error in validation_result['errors']:
@@ -110,7 +111,7 @@ class SchemaValidator:
                 )
             return result.fetchone() is not None
         except Exception as e:
-            message.error(f"检查表存在性时出错: {str(e)}")
+            db_logger.error(f"检查表存在性时出错: {str(e)}")
             return False
     
     def _get_database_table_info(self, table_name: str) -> Dict[str, Any]:
@@ -500,7 +501,7 @@ def validate_schema_consistency(model: Type[SqlAlChemyBase],
         
         if not result['valid']:
             error_msg = f"模型 {model.__name__} 与数据库表结构不一致"
-            message.error(error_msg)
+            db_logger.error(error_msg)
             
             # 记录详细错误到日志
             for error in result['errors']:
@@ -524,7 +525,7 @@ def validate_schema_consistency(model: Type[SqlAlChemyBase],
                         f"用户选择停止执行。模式验证失败: {error_msg}"
                     )
                 else:
-                    message.info("用户选择继续执行，忽略模式验证错误")
+                    db_logger.info("用户选择继续执行，忽略模式验证错误")
             
             return False
         
@@ -532,7 +533,7 @@ def validate_schema_consistency(model: Type[SqlAlChemyBase],
         
     except Exception as e:
         error_msg = f"模式验证过程中发生错误: {str(e)}"
-        message.error(error_msg)
+        db_logger.error(error_msg)
         if halt_on_error:
             raise SchemaValidationError(error_msg) from e
         return False
