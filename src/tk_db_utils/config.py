@@ -11,6 +11,7 @@ from tk_base_utils.tk_logger import set_logger_config_path,get_logger_config
 from tk_base_utils.tk_logger.config import TkLoggerConfig
 
 
+
 class DatabaseConfig:
     """数据库配置类"""
     
@@ -116,7 +117,7 @@ class DatabaseConfig:
         """获取数据库获取连接的超时时间（秒）"""
         return self.db_config.get("pool_timeout", 30)
     
-    
+    @property
     def db_pool_recycle(self) -> int:
         """获取数据库连接回收时间（秒）"""
         return self.db_config.get("pool_recycle", 3600)
@@ -179,7 +180,7 @@ class DbConfigProxy:
 
 
 
-db_config = DbConfigProxy()
+db_config:DatabaseConfig = DbConfigProxy()
 
 def set_db_logger_config_path(config_path: str|Path) -> None:
     """设置数据库日志配置文件路径"""
@@ -189,4 +190,4 @@ class LoggerConfigProxy:
     """日志配置代理类，确保配置的延迟初始化"""
     def __getattr__(self, name)->TkLoggerConfig:
         return getattr(get_logger_config(), name)
-db_logger_config = LoggerConfigProxy()
+db_logger_config:TkLoggerConfig = LoggerConfigProxy()
