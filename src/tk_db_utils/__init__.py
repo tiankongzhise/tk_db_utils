@@ -14,7 +14,7 @@ from .schema_validator import (
 )
 
 from .database import get_db_client
-from .config import set_db_config_path,set_db_logger_config_path,get_db_config,get_logger_config
+from .config import set_db_config_path,get_db_config
 
 __all__ = [
     # 'init_db',
@@ -33,9 +33,6 @@ __all__ = [
     'validate_schema_consistency',
     'get_db_client',
     'set_db_config_path',
-    'set_db_logger_config_path',
     'get_db_config',
-    'get_logger_config',
-
 ]
 

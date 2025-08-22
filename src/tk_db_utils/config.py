@@ -7,8 +7,7 @@ import tomllib
 from typing import Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
-from tk_base_utils.tk_logger import set_logger_config_path,get_logger_config
-from tk_base_utils.tk_logger.config import TkLoggerConfig
+
 
 
 
@@ -181,13 +180,3 @@ class DbConfigProxy:
 
 
 db_config:DatabaseConfig = DbConfigProxy()
-
-def set_db_logger_config_path(config_path: str|Path) -> None:
-    """设置数据库日志配置文件路径"""
-    set_logger_config_path(config_path)
-
-class LoggerConfigProxy:
-    """日志配置代理类，确保配置的延迟初始化"""
-    def __getattr__(self, name)->TkLoggerConfig:
-        return getattr(get_logger_config(), name)
-db_logger_config:TkLoggerConfig = LoggerConfigProxy()

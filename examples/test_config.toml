@@ -1,0 +1,56 @@
+[logging]
+# 日志器名称
+name = "tk_logger"
+
+# 日志级别 ("INFO_CONFIG","INFO_UTILS","INFO_DATABASE","INFO_KERNEL","INFO_CORE","INFO_SERVICE","INFO_CONTROL","INFO", "DEBUG", "WARNING", "ERROR", "CRITICAL")
+level = "INFO"
+
+
+# 日志格式
+format = "%(asctime)s - %(name)s - %(caller_filename)s - %(caller_lineno)s - %(levelname)s - %(message)s"
+
+# 日志文件路径
+file_path = "logs/app.log"
+
+# 日志文件最大字节数 (10MB)
+max_bytes = 10485760
+
+# 备份文件数量
+backup_count = 5
+
+# 日志轮转方式 (size 或 time)
+rotation_type = "size"
+
+# 日志轮转时间间隔 (当rotation_type为time时使用)
+# 可选值: S(秒), M(分), H(小时), D(天), midnight(午夜), W0-W6(周一到周日)
+rotation_interval = "midnight"
+
+# 是否使用绝对路径记录caller_filename (true: 使用绝对路径, false: 仅使用文件名)
+use_absolute_path = false
+
+# 多例logger是否共享同一个日志文件
+multi_instance_shared_log = true
+
+[db_config]
+# 数据库基本配置
+database = "test_db"  # 数据库名称
+driver = "pymysql"              # 数据库驱动 (pymysql, psycopg2, sqlite等)
+dialect = "mysql"               # 数据库方言 (mysql, postgresql, sqlite等)
+charset = "utf8mb4"             # 字符集
+collation = "utf8mb4_general_ci" # 排序规则
+
+
+# SQLAlchemy 引擎配置
+echo = false          # 是否打印SQL语句到控制台
+pool_size = 5         # 连接池大小
+max_overflow = 10     # 连接池最大溢出连接数
+pool_timeout = 30     # 获取连接的超时时间（秒）
+pool_recycle = 3600   # 连接回收时间（秒）
+pool_pre_ping = true  # 连接前是否ping测试连接有效性
+
+
+# 连接配置
+default_port = 3306        # 默认端口（当环境变量未设置时使用）
+connection_timeout = 30    # 连接超时时间
+read_timeout = 30          # 读取超时时间
+write_timeout = 30         # 写入超时时间
