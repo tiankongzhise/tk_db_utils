@@ -137,3 +137,4 @@ def get_db_client(env_file_path:str|Path|None = None,
 
         
 
+get_db_client = logger_wrapper(level="INFO_DATABASE")(get_db_client)
