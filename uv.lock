@@ -268,15 +268,15 @@ wheels = [
 
 [[package]]
 name = "tk-base-utils"
-version = "0.3.3"
+version = "0.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/eb/f8/718d2d475d46889cc48b217b5752d3e36a739ad5a844e2d15e07b720403d/tk_base_utils-0.3.3.tar.gz", hash = "sha256:1d1ef52f1375d5d14ba364d46edbf711f132cd37b231f7fbd77ac7f91f03bba5", size = 26836 }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/19/9dc8eb1d09c6aecbe7075c8165c0e946405ab024bab6bce94d2cdbd70596/tk_base_utils-0.3.4.tar.gz", hash = "sha256:0395e425cb87cef99a2909b6af61fdc8f7e0480cdc5014bb5921ab0a021ce308", size = 26926 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/88/7491fa413a41da90b99b93f0adb4666611f8fae0b08d72d93c7862bc577a/tk_base_utils-0.3.3-py3-none-any.whl", hash = "sha256:6f7c039a2e8943d1b71cdeae153ceb8344af88b46d76aad171db0c14280ad741", size = 34635 },
+    { url = "https://files.pythonhosted.org/packages/c1/b3/3e526db44cba9e09dd058cd29a44b737405c58ea0d183bdabddb398f92e9/tk_base_utils-0.3.4-py3-none-any.whl", hash = "sha256:668c07abf2a2bd5382cb533a5ec6dea6677993d1f2cf09ab4b7514c757bf8cbd", size = 34688 },
 ]
 
 [[package]]
@@ -297,7 +297,7 @@ requires-dist = [
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "sqlalchemy", specifier = ">=2.0.40" },
-    { name = "tk-base-utils", specifier = ">=0.3.3" },
+    { name = "tk-base-utils", specifier = ">=0.3.4" },
 ]
 
 [[package]]

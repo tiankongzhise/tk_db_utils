@@ -17,7 +17,7 @@ class SqlalchemyMysqlClient(object):
         self.db_config :DatabaseConfig = None
         self.engine :Engine = None
     
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def init_client(self,env_file_path:str|Path|None = None,db_config_path:str|Path|None = None,db_logger_config_path:str|Path|None = None):
         if db_config_path and Path(db_config_path).exists():
             set_db_config_path(db_config_path,env_file_path)
@@ -26,7 +26,7 @@ class SqlalchemyMysqlClient(object):
         self.db_config = db_config
         self.create_engine()        
         return self
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def init_db(self,database:Type[DeclarativeBase]):
         try:
             database.metadata.create_all(bind=self.engine)
@@ -34,7 +34,7 @@ class SqlalchemyMysqlClient(object):
         except Exception as e:
             raise ValueError(f"init db table failed,err:{e}")
     
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def create_engine(self) -> Engine:
         # 从环境变量获取数据库连接信息
         host = os.getenv("DB_HOST")
@@ -77,32 +77,32 @@ class SqlalchemyMysqlClient(object):
         if not self.engine:
             raise ValueError(f"create engine failed,host:{host},port:{port},user_name:{user_name},password:{password},database:{self.database},driver:{driver},dialect:{dialect},charset:{charset},collation:{collation}")
         return self
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def create_session_factory(self) -> sessionmaker:
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         return self
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def get_engine(self) -> Engine:
         if not self.engine:
             raise ValueError("db engine not init")
         return self.engine
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def auto_init(self,env_file_path:str|Path|None = None,
                   db_config_path:str|Path|None = None,
                   db_logger_config_path:str|Path|None = None,
                   database:Type[DeclarativeBase] = SqlAlChemyBase):
         self.init_client(env_file_path,db_config_path,db_logger_config_path).init_db(database).create_session_factory()
         return self
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def get_session(self) -> Session:
         if not self.session_factory:
             raise ValueError("db session factory not init")
         return self.session_factory()
     @property
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     def session_scope(self):
         return self._session_scope_context()
-    @logger_wrapper(level="INFO_DATABASE")
+    @logger_wrapper(level="INFO_UTILS")
     @contextmanager
     def _session_scope_context(self) -> Generator[Session, None, None]:
         session = self.session_factory()
@@ -120,7 +120,7 @@ class SqlalchemyMysqlClient(object):
     
 _db_client = None
 
-@logger_wrapper(level="INFO_DATABASE")
+@logger_wrapper(level="INFO_UTILS")
 def get_db_client(env_file_path:str|Path|None = None,
                   db_config_path:str|Path|None = None,
                   db_logger_config_path:str|Path|None = None,
@@ -137,4 +137,4 @@ def get_db_client(env_file_path:str|Path|None = None,
 
         
 
-get_db_client = logger_wrapper(level="INFO_DATABASE")(get_db_client)
+

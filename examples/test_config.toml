@@ -3,7 +3,7 @@
 name = "tk_logger"
 
 # 日志级别 ("INFO_CONFIG","INFO_UTILS","INFO_DATABASE","INFO_KERNEL","INFO_CORE","INFO_SERVICE","INFO_CONTROL","INFO", "DEBUG", "WARNING", "ERROR", "CRITICAL")
-level = "INFO"
+level = "INFO_UTILS"
 
 
 # 日志格式
@@ -26,10 +26,10 @@ rotation_type = "size"
 rotation_interval = "midnight"
 
 # 是否使用绝对路径记录caller_filename (true: 使用绝对路径, false: 仅使用文件名)
-use_absolute_path = false
+use_absolute_path = true
 
 # 多例logger是否共享同一个日志文件
-multi_instance_shared_log = true
+multi_instance_shared_log = false
 
 [db_config]
 # 数据库基本配置

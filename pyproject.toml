@@ -31,7 +31,7 @@ dependencies = [
     "pymysql>=1.1.1",
     "python-dotenv>=1.1.1",
     "sqlalchemy>=2.0.40",
-    "tk-base-utils>=0.3.3",
+    "tk-base-utils>=0.3.4",
 ]
 
 [project.urls]
