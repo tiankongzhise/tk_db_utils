@@ -76,7 +76,7 @@ class SchemaValidator:
         
         # 记录验证结果
         if validation_result['valid']:
-            db_logger.info(f"表 '{table_name}' 结构验证通过")
+            db_logger.info_database(f"表 '{table_name}' 结构验证通过")
         else:
             error_msg = f"表 '{table_name}' 结构验证失败，发现 {len(validation_result['errors'])} 个不一致项"
             db_logger.error(error_msg)
@@ -525,7 +525,7 @@ def validate_schema_consistency(model: Type[SqlAlChemyBase],
                         f"用户选择停止执行。模式验证失败: {error_msg}"
                     )
                 else:
-                    db_logger.info("用户选择继续执行，忽略模式验证错误")
+                    db_logger.info_database("用户选择继续执行，忽略模式验证错误")
             
             return False
         
